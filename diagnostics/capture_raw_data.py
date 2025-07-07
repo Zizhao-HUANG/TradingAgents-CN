@@ -1,9 +1,14 @@
 import argparse
-import os
 import json
+import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
+
+# Ensure project modules can be imported when running from any location
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Create argument parser
 parser = argparse.ArgumentParser(
@@ -14,8 +19,9 @@ args = parser.parse_args()
 
 symbol = args.stock_symbol
 
-# Create output directory
-output_dir = Path("raw_data_output") / symbol
+# Create output directory relative to the project root so results are stored in
+# the repository regardless of the working directory.
+output_dir = PROJECT_ROOT / "raw_data_output" / symbol
 output_dir.mkdir(parents=True, exist_ok=True)
 print(f"Starting data capture for symbol: {symbol}")
 print(f"Output directory: {output_dir}/")
