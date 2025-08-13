@@ -35,6 +35,22 @@ services:
       TRADINGAGENTS_MONGODB_URL: mongodb://admin:tradingagents123@mongodb:27017/tradingagents?authSource=admin
       TRADINGAGENTS_REDIS_URL: redis://:tradingagents123@redis:6379
       TRADINGAGENTS_CACHE_TYPE: redis
+      # 强制数据库配置（覆盖 .env 以适配容器服务名）
+      MONGODB_ENABLED: "true"
+      REDIS_ENABLED: "true"
+      MONGODB_HOST: "mongodb"
+      MONGODB_PORT: "27017"
+      MONGODB_USERNAME: "admin"
+      MONGODB_PASSWORD: "tradingagents123"
+      MONGODB_DATABASE: "tradingagents"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "tradingagents123"
+      # URL 形式（兼容旧模块）
+      MONGODB_URL: "mongodb://admin:tradingagents123@mongodb:27017"
+      REDIS_URL: "redis://:tradingagents123@redis:6379"
+      # 连接字符串（用于部分模块）
+      MONGODB_CONNECTION_STRING: "mongodb://admin:tradingagents123@mongodb:27017/"
       # Docker环境标识和PDF支持
       DOCKER_CONTAINER: "true"
       DISPLAY: ":99"
