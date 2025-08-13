@@ -1160,6 +1160,17 @@ cost_optimized_config = {
     "max_debate_rounds": 1,
     "online_tools": False  # 使用缓存数据
 }
+
+### 依赖安装说明（Google 依赖栈）
+
+- 默认安装使用 `langchain-google-genai` 集成，已在 `pyproject.toml` 中固定为 `==2.1.9`，并明确约束 `google-ai-generativelanguage>=0.6.18,<0.7.0`。
+- 如需“原生 Google Generative AI SDK”（`google-generativeai`）开发，请单独安装可选依赖：
+
+```bash
+pip install -e .[google_native]
+```
+
+请勿同时混装不同 Google 依赖路径（`google-generativeai` 与 `langchain-google-genai`）的冲突版本，否则会产生 `ResolutionImpossible`。
 ```
 ## 🤝 贡献指南
 

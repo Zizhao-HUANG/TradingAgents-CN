@@ -1,5 +1,6 @@
 # Python环境和缓存
 env/
+/.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -32,6 +33,7 @@ eval_results/
 eval_data/
 results/
 logs/
+web.out
 temp/
 
 # 数据缓存目录 (不纳入版本控制)
@@ -119,3 +121,4 @@ COMMIT_SUMMARY.md
 *.temp
 *.pyc.*
 *.pyo.*
+.env.example
