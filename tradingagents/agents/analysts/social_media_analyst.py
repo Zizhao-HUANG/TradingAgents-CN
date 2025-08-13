@@ -198,12 +198,33 @@ def create_social_media_analyst(llm, toolkit):
                 analyst_name="社交媒体分析师"
             )
         else:
-            # 非Google模型的处理逻辑
-            logger.debug(f"📊 [DEBUG] 非Google模型 ({llm.__class__.__name__})，使用标准处理逻辑")
-            
-            report = ""
-            if len(result.tool_calls) == 0:
-                report = result.content
+            # 非Google模型：显式处理工具调用，确保真实执行
+            logger.info(f"[社交媒体分析师] 非Google模型 ({llm.__class__.__name__})，执行工具调用处理")
+
+            tool_calls = getattr(result, 'tool_calls', []) or []
+            executed_report = None
+
+            # 如果有工具调用声明，优先执行工具
+            for tc in tool_calls:
+                try:
+                    name = getattr(tc, 'name', '') or tc.get('name')
+                    args = getattr(tc, 'args', {}) or tc.get('args', {}) or {}
+                    logger.info(f"[社交媒体分析师] 工具调用声明: {name} | args={args}")
+
+                    if name == 'get_stock_news_openai':
+                        # 标准化参数
+                        arg_ticker = args.get('ticker') or ticker
+                        arg_date = args.get('curr_date') or current_date
+                        logger.info(f"[社交媒体分析师] 执行 get_stock_news_openai: ticker={arg_ticker}, curr_date={arg_date}")
+                        news_text = toolkit.get_stock_news_openai.invoke({"ticker": arg_ticker, "curr_date": arg_date})
+                        if news_text and len(news_text.strip()) > 50:
+                            executed_report = news_text
+                            break
+                except Exception as e:
+                    logger.error(f"[社交媒体分析师] 工具执行异常: {e}")
+
+            # 如未成功执行，回退原始内容
+            report = executed_report if executed_report else result.content
 
         return {
             "messages": [result],

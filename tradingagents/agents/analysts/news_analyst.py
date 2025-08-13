@@ -279,55 +279,88 @@ def create_news_analyst(llm, toolkit):
             )
         else:
             # 非Google模型的处理逻辑
-            logger.info(f"[新闻分析师] 非Google模型 ({llm.__class__.__name__})，使用标准处理逻辑")
-            
+            logger.info(f"[新闻分析师] 非Google模型 ({llm.__class__.__name__})，执行工具调用处理")
+
             # 检查工具调用情况
-            tool_call_count = len(result.tool_calls) if hasattr(result, 'tool_calls') else 0
-            logger.info(f"[新闻分析师] LLM调用了 {tool_call_count} 个工具")
-            
-            if tool_call_count == 0:
-                logger.warning(f"[新闻分析师] ⚠️ {llm.__class__.__name__} 没有调用任何工具，启动补救机制...")
-                
+            tool_calls = getattr(result, 'tool_calls', []) or []
+            tool_call_count = len(tool_calls)
+            logger.info(f"[新闻分析师] LLM声明调用了 {tool_call_count} 个工具")
+
+            executed_report = None
+
+            # 显式执行工具调用（仅处理统一新闻工具）
+            for tc in tool_calls:
                 try:
-                    # 强制获取新闻数据
-                    logger.info(f"[新闻分析师] 🔧 强制调用统一新闻工具获取新闻数据...")
-                    forced_news = unified_news_tool(stock_code=ticker, max_news=10, model_info="")
-                    
-                    if forced_news and len(forced_news.strip()) > 100:
-                        logger.info(f"[新闻分析师] ✅ 强制获取新闻成功: {len(forced_news)} 字符")
-                        
-                        # 基于真实新闻数据重新生成分析
-                        forced_prompt = f"""
-您是一位专业的财经新闻分析师。请基于以下最新获取的新闻数据，对股票 {ticker} 进行详细的新闻分析：
+                    name = getattr(tc, 'name', '') or tc.get('name')
+                    args = getattr(tc, 'args', {}) or tc.get('args', {}) or {}
+                    logger.info(f"[新闻分析师] 工具调用声明: {name} | args={args}")
+
+                    if name == 'get_stock_news_unified':
+                        # 标准化参数
+                        stock_code = args.get('ticker') or args.get('stock_code') or ticker
+                        curr_date = args.get('curr_date') or state.get('trade_date') or current_date
+                        logger.info(f"[新闻分析师] 执行统一新闻工具: stock_code={stock_code}, curr_date={curr_date}")
+
+                        news_text = unified_news_tool(stock_code=stock_code, max_news=10, model_info="")
+                        if news_text and len(news_text.strip()) > 100:
+                            # 用真实数据生成分析
+                            analysis_prompt = f"""
+您是一位专业的财经新闻分析师。请基于以下已获取的新闻数据，对股票 {ticker} 进行详细分析：
 
 === 最新新闻数据 ===
-{forced_news}
+{news_text}
 
 === 分析要求 ===
 {system_message}
 
 请基于上述真实新闻数据撰写详细的中文分析报告。
 """
-                        
-                        logger.info(f"[新闻分析师] 🔄 基于强制获取的新闻数据重新生成完整分析...")
+                            executed = llm.invoke([{"role": "user", "content": analysis_prompt}])
+                            if hasattr(executed, 'content') and executed.content:
+                                executed_report = executed.content
+                                logger.info(f"[新闻分析师] ✅ 工具执行成功并生成报告，长度: {len(executed_report)} 字符")
+                                break
+                            else:
+                                logger.warning("[新闻分析师] 工具执行后生成报告为空，继续兜底")
+                except Exception as tool_e:
+                    logger.error(f"[新闻分析师] 工具执行异常: {tool_e}")
+
+            if executed_report:
+                report = executed_report
+            else:
+                # 若声明调用但未成功执行，走强制兜底
+                if tool_call_count == 0:
+                    logger.warning(f"[新闻分析师] ⚠️ 未声明任何工具调用，启动强制兜底...")
+                else:
+                    logger.warning(f"[新闻分析师] ⚠️ 工具调用未成功执行，启动强制兜底...")
+
+                try:
+                    fallback_news = unified_news_tool(stock_code=ticker, max_news=10, model_info="")
+                    if fallback_news and len(fallback_news.strip()) > 100:
+                        forced_prompt = f"""
+您是一位专业的财经新闻分析师。请基于以下最新获取的新闻数据，对股票 {ticker} 进行详细的新闻分析：
+
+=== 最新新闻数据 ===
+{fallback_news}
+
+=== 分析要求 ===
+{system_message}
+
+请基于上述真实新闻数据撰写详细的中文分析报告。
+"""
                         forced_result = llm.invoke([{"role": "user", "content": forced_prompt}])
-                        
                         if hasattr(forced_result, 'content') and forced_result.content:
                             report = forced_result.content
-                            logger.info(f"[新闻分析师] ✅ 强制补救成功，生成基于真实数据的报告，长度: {len(report)} 字符")
+                            logger.info(f"[新闻分析师] ✅ 兜底成功，报告长度: {len(report)} 字符")
                         else:
-                            logger.warning(f"[新闻分析师] ⚠️ 强制补救失败，使用原始结果")
                             report = result.content
+                            logger.warning("[新闻分析师] 兜底生成失败，回退原始结果")
                     else:
-                        logger.warning(f"[新闻分析师] ⚠️ 统一新闻工具获取失败，使用原始结果")
                         report = result.content
-                        
+                        logger.warning("[新闻分析师] 统一新闻工具返回为空，回退原始结果")
                 except Exception as e:
-                    logger.error(f"[新闻分析师] ❌ 强制补救过程失败: {e}")
+                    logger.error(f"[新闻分析师] 兜底异常: {e}")
                     report = result.content
-            else:
-                # 有工具调用，直接使用结果
-                report = result.content
         
         total_time_taken = (datetime.now() - start_time).total_seconds()
         logger.info(f"[新闻分析师] 新闻分析完成，总耗时: {total_time_taken:.2f}秒")
