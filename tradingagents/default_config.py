@@ -12,7 +12,7 @@ DEFAULT_CONFIG = {
     "llm_provider": "openai",
     "deep_think_llm": "o4-mini",
     "quick_think_llm": "gpt-4o-mini",
-    "backend_url": "https://api.openai.com/v1",
+    "backend_url": os.getenv("OPENAI_BASE_URL", os.getenv("CUSTOM_OPENAI_BASE_URL", os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"))),
     # Debate and discussion settings
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,

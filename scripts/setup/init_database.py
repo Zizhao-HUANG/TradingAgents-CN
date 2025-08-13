@@ -216,7 +216,8 @@ def test_database_connection():
     logger.info(f"\n🔗 测试数据库连接...")
     
     try:
-        from tradingagents.dataflows.database_manager import get_database_manager
+        # 修复导入路径，使用统一的配置管理器
+        from tradingagents.config.database_manager import get_database_manager
 
         
         db_manager = get_database_manager()
